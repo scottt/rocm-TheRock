@@ -1,7 +1,7 @@
-From 019d6e65d121f6efdbf3875f9fffd4d433e22318 Mon Sep 17 00:00:00 2001
+From ef3278669a842059a9ebe64af9700f7a4c78edf7 Mon Sep 17 00:00:00 2001
 From: Stella Laurenzo <stellaraccident@gmail.com>
 Date: Wed, 19 Feb 2025 17:17:01 -0800
-Subject: [PATCH] Work around ambiguous cast of half_t -> __half in call to
+Subject: [PATCH 1/2] Work around ambiguous cast of half_t -> __half in call to
  __hneg.
 
 Encountered on gcc 13.3 on a pre-release of ROCM 6.4.
@@ -10,7 +10,7 @@ Encountered on gcc 13.3 on a pre-release of ROCM 6.4.
  1 file changed, 3 insertions(+), 1 deletion(-)
 
 diff --git a/include/ck/utility/math_v2.hpp b/include/ck/utility/math_v2.hpp
-index b374c4ad5..ca45911d1 100644
+index b374c4a..ca45911 100644
 --- a/include/ck/utility/math_v2.hpp
 +++ b/include/ck/utility/math_v2.hpp
 @@ -611,7 +611,9 @@ inline __device__ int8_t neg<int8_t>(int8_t x)
@@ -25,5 +25,5 @@ index b374c4ad5..ca45911d1 100644
  
  template <typename T>
 -- 
-2.43.0
+2.48.1
 

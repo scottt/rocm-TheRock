@@ -1,7 +1,7 @@
-From dc6344fd018e3031775e5cc7ba8db3080ad736d6 Mon Sep 17 00:00:00 2001
+From b37445abd761b92af90a19c9be860e78c4030ed3 Mon Sep 17 00:00:00 2001
 From: Stella Laurenzo <stellaraccident@gmail.com>
 Date: Wed, 19 Feb 2025 17:14:59 -0800
-Subject: [PATCH 2/3] Generate composable_kernel ck/config.h as part of main
+Subject: [PATCH 2/4] Generate composable_kernel ck/config.h as part of main
  build.
 
 Without this, the ck/config.h comes from somewhere, most probably a ROCM SDK that has it installed as a sibling to the HIP headers. Not all ROCM SDKs include this, and even so, it is dangerous to have a sheared header dependency like this.
@@ -10,7 +10,7 @@ Without this, the ck/config.h comes from somewhere, most probably a ROCM SDK tha
  1 file changed, 21 insertions(+)
 
 diff --git a/aten/src/ATen/CMakeLists.txt b/aten/src/ATen/CMakeLists.txt
-index f0868ea048..293fa8ace3 100644
+index f0868ea..293fa8a 100644
 --- a/aten/src/ATen/CMakeLists.txt
 +++ b/aten/src/ATen/CMakeLists.txt
 @@ -311,9 +311,30 @@ if(USE_CUDA)
@@ -45,5 +45,5 @@ index f0868ea048..293fa8ace3 100644
    list(APPEND ATen_HIP_INCLUDE $<TARGET_PROPERTY:fmt::fmt-header-only,INTERFACE_INCLUDE_DIRECTORIES>)
    list(APPEND ATen_HIP_DEPENDENCY_LIBS fmt::fmt-header-only)
 -- 
-2.43.0
+2.48.1
 

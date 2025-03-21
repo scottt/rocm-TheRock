@@ -1,7 +1,7 @@
-From 3b7899a0fe6b1339d04daf1bbba709bbd04f171c Mon Sep 17 00:00:00 2001
+From 143ecbd5d946545189613737b7f9911ecc18f1d6 Mon Sep 17 00:00:00 2001
 From: Stella Laurenzo <stellaraccident@gmail.com>
 Date: Wed, 19 Feb 2025 17:16:27 -0800
-Subject: [PATCH 3/3] TEMPORARY: Manually disable roctx until compatibility
+Subject: [PATCH 3/4] TEMPORARY: Manually disable roctx until compatibility
  with rocprofv3 is established.
 
 ---
@@ -10,7 +10,7 @@ Subject: [PATCH 3/3] TEMPORARY: Manually disable roctx until compatibility
  2 files changed, 20 insertions(+), 10 deletions(-)
 
 diff --git a/torch/csrc/cuda/shared/nvtx.cpp b/torch/csrc/cuda/shared/nvtx.cpp
-index a14ba6b8f6..b5457030ce 100644
+index a14ba6b..b545703 100644
 --- a/torch/csrc/cuda/shared/nvtx.cpp
 +++ b/torch/csrc/cuda/shared/nvtx.cpp
 @@ -1,11 +1,13 @@
@@ -66,7 +66,7 @@ index a14ba6b8f6..b5457030ce 100644
    nvtx.def("deviceRangeEnd", device_nvtxRangeEnd);
  }
 diff --git a/torch/csrc/profiler/stubs/cuda.cpp b/torch/csrc/profiler/stubs/cuda.cpp
-index e4ad3fc8e6..a92c5bc95c 100644
+index e4ad3fc..a92c5bc 100644
 --- a/torch/csrc/profiler/stubs/cuda.cpp
 +++ b/torch/csrc/profiler/stubs/cuda.cpp
 @@ -1,10 +1,12 @@
@@ -105,5 +105,5 @@ index e4ad3fc8e6..a92c5bc95c 100644
  
    void onEachDevice(std::function<void(int)> op) const override {
 -- 
-2.43.0
+2.48.1
 

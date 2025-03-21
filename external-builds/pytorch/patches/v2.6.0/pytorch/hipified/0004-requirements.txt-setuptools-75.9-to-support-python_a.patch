@@ -1,0 +1,28 @@
+From bf6a3e55cf4d007212ef85b544ef3c7641b11d90 Mon Sep 17 00:00:00 2001
+From: Scott Tsai <scottt.tw@gmail.com>
+Date: Sat, 22 Mar 2025 06:28:32 +0800
+Subject: [PATCH 4/4] requirements.txt: setuptools < 75.9 to support
+ python_abi_suffix
+
+Fixes "TypeError: Command.init() got an unexpected keyword argument 'no_python_abi_suffix'" error
+when building C++ extension of pytorch-vision
+---
+ requirements.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/requirements.txt b/requirements.txt
+index 642d78e..1fd579a 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -6,7 +6,7 @@ numpy
+ psutil
+ pyyaml
+ requests
+-setuptools
++setuptools>=62.3.0,<75.9
+ types-dataclasses
+ typing-extensions>=4.10.0
+ sympy==1.13.1 ; python_version >= "3.9"
+-- 
+2.48.1
+
