@@ -71,16 +71,14 @@ RUN --mount=type=cache,id=pytorch-f${FEDORA_VER},target=/therock \
 		-DTHEROCK_VERBOSE=on && \
 	cmake --build /therock/output/build --target therock-archives
 
-# Export artifacts
-# Can't use `FROM scratch` here due to needing `sh` to use RUN and the cache mount
-FROM registry.fedoraproject.org/fedora-toolbox:$FEDORA_VER AS artifacts
+# Create tarball
 RUN --mount=type=cache,id=pytorch-f${FEDORA_VER},target=/therock \
 	tar -C /therock/output/build/dist/rocm -cJf /therock-${AMDGPU_TARGETS}-$(date +'%Y%m%d').tar.xz . && \
 	cp /therock/output/build/artifacts/*.tar.xz /
 
 # Development image
 FROM builddeps AS rocm-dev-f${FEDORA_VER}
-COPY --from=artifacts /therock-*.tar.xz /opt
+COPY --from=build /opt/therock-*.tar.xz /opt
 
 RUN mkdir -p /opt/rocm && \
 	tar -C /opt/rocm -xJf /opt/therock-*.tar.xz && \

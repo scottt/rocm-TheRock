@@ -24,5 +24,5 @@ RUN --mount=type=cache,id=pytorch-f${FEDORA_VER},target=/therock \
 
 # Development image
 FROM pytorch-dev-f${FEDORA_VER} AS pytorch-vision-dev-f${FEDORA_VER}
-COPY --from=artifacts /*.whl /opt/
+COPY --from=build $(ls -t /therock/pytorch-vision/dist/torchvision-*.whl | head -n 1) /opt
 RUN uv pip install --system /opt/*.whl
