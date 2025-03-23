@@ -45,12 +45,12 @@ RUN --mount=type=cache,id=pytorch-f${FEDORA_VER},target=/therock \
 
 # pytorch-install
 RUN --mount=type=cache,id=pytorch-f${FEDORA_VER},target=/therock \
-	uv pip install --system $(ls -tr /therock/pytorch/dist/torch-*.whl | head -n 1)
+	uv pip install --system $(ls -t /therock/pytorch/dist/torch-*.whl | head -n 1)
 
 # Export artifacts
 FROM registry.fedoraproject.org/fedora-toolbox:$FEDORA_VER AS artifacts
 RUN --mount=type=cache,id=pytorch-f${FEDORA_VER},target=/therock \
-	cp $(ls -tr /therock/pytorch/dist/torch-*.whl | head -n 1) /
+	cp $(ls -t /therock/pytorch/dist/torch-*.whl | head -n 1) /
 
 # Development image
 FROM rocm-dev-f${FEDORA_VER} AS pytorch-dev-f${FEDORA_VER}

@@ -20,7 +20,7 @@ RUN --mount=type=cache,id=pytorch-f${FEDORA_VER},target=/therock \
 # Export artifacts
 FROM registry.fedoraproject.org/fedora-toolbox:$FEDORA_VER AS artifacts
 RUN --mount=type=cache,id=pytorch-f${FEDORA_VER},target=/therock \
-	cp $(ls -tr /therock/pytorch-vision/dist/torchvision-*.whl | head -n 1) /
+	cp $(ls -t /therock/pytorch-vision/dist/torchvision-*.whl | head -n 1) /
 
 # Development image
 FROM pytorch-dev-f${FEDORA_VER} AS pytorch-vision-dev-f${FEDORA_VER}
