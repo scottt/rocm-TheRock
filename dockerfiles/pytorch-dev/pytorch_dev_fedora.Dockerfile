@@ -43,11 +43,15 @@ RUN --mount=type=cache,id=pytorch-f${FEDORA_VER},target=/therock \
 	pushd build && cmake "-DPYTORCH_ROCM_ARCH=$AMDGPU_TARGETS" . && popd && \
 	python setup.py bdist_wheel
 
-# pytorch-install
 RUN --mount=type=cache,id=pytorch-f${FEDORA_VER},target=/therock \
-	uv pip install --system $(ls -t /therock/pytorch/dist/torch-*.whl | head -n 1)
+	rm -f /opt/torch-*.whl && \
+	cp $(ls -t /therock/pytorch/dist/torch-*.whl | head -n 1) /opt
 
 # Development image
 FROM rocm-dev-f${FEDORA_VER} AS pytorch-dev-f${FEDORA_VER}
-COPY --from=build $(ls -t /therock/pytorch/dist/torch-*.whl | head -n 1) /opt
+COPY --from=build /opt/torch-*.whl /opt
 RUN uv pip install --system /opt/*.whl
+
+# the setuptools from rocm-dev-f${FEDORA_VER} could be too new
+# and cause C++ extensions of pytorch, like pytorch-vision to fail to build
+RUN uv pip install --system 'setuptools>=62.3.0,<75.9'

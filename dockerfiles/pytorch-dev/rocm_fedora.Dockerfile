@@ -73,7 +73,7 @@ RUN --mount=type=cache,id=pytorch-f${FEDORA_VER},target=/therock \
 
 # Create tarball
 RUN --mount=type=cache,id=pytorch-f${FEDORA_VER},target=/therock \
-	tar -C /therock/output/build/dist/rocm -cJf /therock-${AMDGPU_TARGETS}-$(date +'%Y%m%d').tar.xz . && \
+	tar -C /therock/output/build/dist/rocm -cJf /opt/therock-${AMDGPU_TARGETS}-$(date +'%Y%m%d').tar.xz . && \
 	cp /therock/output/build/artifacts/*.tar.xz /
 
 # Development image
