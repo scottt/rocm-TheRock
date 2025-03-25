@@ -14,6 +14,10 @@ if(THEROCK_ENABLE_MIOPEN)
       -DMIOPEN_USE_MLIR=OFF # TODO: enable
       -DMIOPEN_BUILD_DRIVER=OFF # TODO: enable
       -DMIOPEN_USE_ROCTRACER=OFF # TODO: enable
+      # Workaround torch.nn.Conv2d problem:
+      # https://github.com/ROCm/MIOpen/issues/3588#issuecomment-2719623239
+      -DMIOPEN_ENABLE_AI_KERNEL_TUNING=OFF
+      -DMIOPEN_ENABLE_AI_IMMED_MODE_FALLBACK=OFF
     COMPILER_TOOLCHAIN
       amd-hip
     BUILD_DEPS
