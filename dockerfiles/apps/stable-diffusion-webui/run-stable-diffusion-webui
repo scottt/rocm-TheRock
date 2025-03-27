@@ -1,0 +1,15 @@
+#!/bin/bash
+
+mkdir -p $HOME/.cache/stable-diffusion-webui/{repositories,models,cache}
+mkdir -p $HOME/.config/miopen
+mkdir -p $HOME/Pictures
+podman run \
+        --name stable-diffusion-webui \
+	--replace \
+	-v $HOME/.cache/stable-diffusion-webui/repositories:/opt/stable-diffusion-webui/repositories \
+	-v $HOME/.cache/stable-diffusion-webui/models:/opt/stable-diffusion-webui/models \
+	-v $HOME/.cache/stable-diffusion-webui/cache:/opt/stable-diffusion-webui/cache \
+	-v $HOME/.cache/miopen:/root/.config/miopen \
+	-v $HOME/Pictures:/opt/stable-diffusion-webui/log/images \
+	--device /dev/kfd --device /dev/dri --net=host --security-opt=no-new-privileges \
+	stable-diffusion-webui:latest 

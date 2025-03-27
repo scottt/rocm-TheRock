@@ -1,0 +1,18 @@
+diff --git a/measure/_regionprops.py b/measure/_regionprops.py
+index 5a78941..1c64b38 100644
+--- a/measure/_regionprops.py
++++ b/measure/_regionprops.py
+@@ -1346,7 +1346,12 @@ def _install_properties_docs():
+ 
+     for p in [member for member in dir(RegionProperties)
+               if not member.startswith('_')]:
+-        getattr(RegionProperties, p).__doc__ = prop_doc[p]
++        try:
++            doc = prop_doc[p]
++        except KeyError:
++            pass
++        else:
++            getattr(RegionProperties, p).__doc__ = prop_doc[p]
+ 
+ 
+ if __debug__:

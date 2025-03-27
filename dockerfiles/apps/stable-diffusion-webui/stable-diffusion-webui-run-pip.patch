@@ -1,0 +1,13 @@
+diff --git a/modules/launch_utils.py b/modules/launch_utils.py
+index 5912a080..c44703ed 100644
+--- a/modules/launch_utils.py
++++ b/modules/launch_utils.py
+@@ -141,7 +141,7 @@ def run_pip(command, desc=None, live=default_command_live):
+         return
+ 
+     index_url_line = f' --index-url {index_url}' if index_url != '' else ''
+-    return run(f'uv pip {command} {index_url_line}', desc=f"Installing {desc}", errdesc=f"Couldn't install {desc}", live=live)
++    return run(f'uv pip {command} --system {index_url_line}', desc=f"Installing {desc}", errdesc=f"Couldn't install {desc}", live=live)
+ 
+ 
+ def check_run_python(code: str) -> bool:
