@@ -1,15 +1,26 @@
 #!/bin/bash
 
-mkdir -p $HOME/.cache/stable-diffusion-webui/{repositories,models,cache}
-mkdir -p $HOME/.config/miopen
+mkdir -p $HOME/.cache/stable-diffusion-webui/{repositories,models,cache,miopen}
+# MIOpen usually uses $HOME/.config/miopen
 mkdir -p $HOME/Pictures
+
+BIND_MOUNT_FLAG=
+if getenforce 2>/dev/null | grep Enforcing > /dev/null; then
+	if getsebool container_use_devices | grep ' off$' > /dev/null ; then
+		printf 'Grant container GPU access with:\n\tsudo setsebool container_use_devices 1\n'>&2
+		exit 1
+	fi
+	# SELinux is in enforcing mode, see https://discussion.fedoraproject.org/t/how-do-i-give-rootless-podman-permissions-to-a-directory/22066/5
+	BIND_MOUNT_FLAG=:z
+fi
+
 podman run \
         --name stable-diffusion-webui \
 	--replace \
-	-v $HOME/.cache/stable-diffusion-webui/repositories:/opt/stable-diffusion-webui/repositories \
-	-v $HOME/.cache/stable-diffusion-webui/models:/opt/stable-diffusion-webui/models \
-	-v $HOME/.cache/stable-diffusion-webui/cache:/opt/stable-diffusion-webui/cache \
-	-v $HOME/.cache/miopen:/root/.config/miopen \
-	-v $HOME/Pictures:/opt/stable-diffusion-webui/log/images \
+	-v $HOME/.cache/stable-diffusion-webui/repositories:/opt/stable-diffusion-webui/repositories$BIND_MOUNT_FLAG \
+	-v $HOME/.cache/stable-diffusion-webui/models:/opt/stable-diffusion-webui/models$BIND_MOUNT_FLAG \
+	-v $HOME/.cache/stable-diffusion-webui/cache:/opt/stable-diffusion-webui/cache$BIND_MOUNT_FLAG \
+	-v $HOME/.cache/stable-diffusion-webui/miopen:/root/.config/miopen$BIND_MOUNT_FLAG \
+	-v $HOME/Pictures:/opt/stable-diffusion-webui/log/images$BIND_MOUNT_FLAG \
 	--device /dev/kfd --device /dev/dri --net=host --security-opt=no-new-privileges \
 	stable-diffusion-webui:latest 
