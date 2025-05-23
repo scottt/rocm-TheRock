@@ -1,4 +1,4 @@
-FROM rocm-manylinux-gfx1151:6.4.0rc AS pytorch-build-manylinux-gfx1151:6.4.0rc
+FROM rocm-manylinux-gfx1151:6.5.0rc AS pytorch-build-manylinux-gfx1151:6.5.0rc
 
 # See pytorch Dockerfile_2_28 (which uses manylinux 2.28)
 # Ensure the expected devtoolset is used
