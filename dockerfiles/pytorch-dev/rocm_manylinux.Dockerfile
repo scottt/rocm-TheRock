@@ -7,7 +7,11 @@ RUN --mount=type=cache,id=therock_build_manylinux_x86_main,target=/var/cache/dnf
 
 COPY dockerfiles/pytorch-dev/install_rocm_from_release.sh /
 
+RUN mkdir -p /therock/src
+WORKDIR /therock/src
+
 RUN --mount=type=cache,id=therock_artifacts,target=/rocm-tarballs \
+    --mount=type=bind,target=/therock/src,rw \
 	INSTALL_PREFIX=/opt/rocm bash \
 	/install_rocm_from_release.sh "$AMDGPU_TARGETS"
 
