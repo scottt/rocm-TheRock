@@ -42,6 +42,6 @@ pip install mkl-static mkl-include
 ## Step 3: Setup and Build
 
 ```
-export CMAKE_PREFIX_PATH="$(realpath ../../build/dist/rocm)"
+export CMAKE_PREFIX_PATH="$(realpath ../../build/base/rocm-cmake/dist/share/rocm)"
 (cd src && USE_KINETO=OFF python setup.py develop)
 ```
