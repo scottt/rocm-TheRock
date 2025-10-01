@@ -372,7 +372,7 @@ def main(argv):
         type=str,
         default=(
             []
-            if is_windows()
+            if False
             else [
                 # Linux only projects.
                 "composable_kernel",
