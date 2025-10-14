@@ -1,0 +1,5 @@
+#!/bin/bash
+
+ln -sf ~/w /w
+ln -sf ~/o /o
+ln -sf ~/cache /cache
