@@ -1,0 +1,12 @@
+#!/bin/bash
+
+therock-env() {
+	local gpu_target="$(cat $HOME/THEROCK-GPU-TARGET)"
+	local rocm_path='/o/r-'"$gpu_target"'/build/dist/rocm'
+	local rocm_llvm_path="$rocm_path"'/lib/llvm'
+	export PATH="$rocm_path"'/bin':"$rocm_llvm_path"'/bin':$PATH
+	# https://github.com/llvm/llvm-project/issues/55989
+	export HIP_DEVICE_LIB_PATH="$rocm_path"'/lib/llvm/amdgcn/bitcode'
+}
+
+therock-env

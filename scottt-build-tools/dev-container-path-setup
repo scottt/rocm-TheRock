@@ -1,0 +1,6 @@
+#!/bin/bash
+
+USER_HOME=/home/scottt
+ln -sf $USER_HOME/w /w
+ln -sf $USER_HOME/o /o
+ln -sf $USER_HOME/cache /cache

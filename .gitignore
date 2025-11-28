@@ -23,3 +23,7 @@ __pycache__
 /install/
 /output-*/
 /out/
+
+# Vim
+*.swp
+*.swo
