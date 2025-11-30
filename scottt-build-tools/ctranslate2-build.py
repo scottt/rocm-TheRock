@@ -46,15 +46,17 @@ pip_cache_dir = caches_dir / "pip"
 env = {}
 env['PYTORCH_ROCM_ARCH'] = gpu_target
 
-if sys.platform == 'win32':
-    env['CXX'] = 'clang-cl'
-    env['CLANG_CMAKE_CXX_COMPILER'] = 'clang-cl'
-else:
-    env['CXX'] = 'clang++'
-    env['CLANG_CMAKE_CXX_COMPILER'] = 'clang++'
-
 env['HIPCXX'] = os.path.join(command_output(['hipconfig', '-l']), 'clang')
+
+if sys.platform == 'win32':
+    env['CC'] = env['HIPCXX']
+    env['CXX'] = env['HIPCXX']
+else:
+    env['CC'] = 'clang'
+    env['CXX'] = 'clang++'
+
 env['HIP_PATH'] = command_output(['hipconfig', '-R'])
+env['ROCM_PATH'] = env['HIP_PATH']
 env['HIP_PLATFORM'] = command_output(['hipconfig', '--platform'])
 
 # The "CTRANSLATE2_ROOT" envvar is used by CTranslate2-rocm/python/setup.py
@@ -78,6 +80,8 @@ CMAKE_BUILD_OPTIONS = [
     ('OPENMP_RUNTIME', 'NONE'),
     # Install in `lib/` not `lib64/` so `bdist_wheel` can find the library
     ("CMAKE_INSTALL_LIBDIR", "lib"),
+    # CMake hip compiler test could erroneously fail on Windows
+    ("CMAKE_HIP_COMPILER_FORCED", "ON"),
 ]
 
 # --- Helper functions ---
@@ -141,10 +145,10 @@ print('Environment variables changed:')
 pprint.pprint(env)
 os.environ.update(env)
 
-print(f"CCACHE_DIR = {os.environ.get('CCACHE_DIR')}")
-print(f"PIP_CACHE_DIR = {os.environ.get('PIP_CACHE_DIR')}")
-print(f"CMAKE_C_COMPILER_LAUNCHER = {os.environ.get('CMAKE_C_COMPILER_LAUNCHER')}")
-print(f"CMAKE_CXX_COMPILER_LAUNCHER = {os.environ.get('CMAKE_CXX_COMPILER_LAUNCHER')}")
+print(f"CCACHE_DIR: {os.environ.get('CCACHE_DIR')}")
+print(f"PIP_CACHE_DIR: {os.environ.get('PIP_CACHE_DIR')}")
+print(f"CMAKE_C_COMPILER_LAUNCHER: {os.environ.get('CMAKE_C_COMPILER_LAUNCHER')}")
+print(f"CMAKE_CXX_COMPILER_LAUNCHER: {os.environ.get('CMAKE_CXX_COMPILER_LAUNCHER')}")
 
 # --- Build Steps ---
 
@@ -153,7 +157,8 @@ cmd = [
     "cmake",
     "-S", source_dir,
     "-B", build_dir,
-   # '--trace-expand',
+    "-G", "Ninja",
+    #'--trace-expand',
 ] + cmake_cli_cache_variable_list_from_build_options(CMAKE_BUILD_OPTIONS)
 run_command(cmd)
 
