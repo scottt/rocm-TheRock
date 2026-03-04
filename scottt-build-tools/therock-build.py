@@ -78,6 +78,51 @@ def run_command(cmd_list, cwd=None):
     print(f"--- Command finished successfully in {end_time - start_time:.2f} seconds ---", flush=True)
     return process
 
+def posix_memory_gb():
+    # Get the number of memory pages and the size of each page in bytes
+    # "number of pages of physical memory" https://linux.die.net/man/3/sysconf
+    pages = os.sysconf('SC_PHYS_PAGES')
+    page_size = os.sysconf('SC_PAGE_SIZE')
+    return pages * page_size / (1024**3)
+
+if sys.platform == 'win32':
+    import ctypes
+    from ctypes import wintypes
+
+    # Define the structure required by the Windows API
+    class MEMORYSTATUSEX(ctypes.Structure):
+        _fields_ = [
+            ("dwLength", wintypes.DWORD),
+            ("dwMemoryLoad", wintypes.DWORD),
+            ("ullTotalPhys", ctypes.c_uint64),
+            ("ullAvailPhys", ctypes.c_uint64),
+            ("ullTotalPageFile", ctypes.c_uint64),
+            ("ullAvailPageFile", ctypes.c_uint64),
+            ("ullTotalVirtual", ctypes.c_uint64),
+            ("ullAvailVirtual", ctypes.c_uint64),
+            ("sullAvailExtendedVirtual", ctypes.c_uint64),
+        ]
+
+        def __init__(self):
+            # The structure size must be set before calling the function
+            self.dwLength = ctypes.sizeof(self)
+            super().__init__()
+
+    def windows_memory_gb():
+        stat = MEMORYSTATUSEX()
+        if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(stat)):
+            return stat.ullTotalPhys / (1024**3)
+        else:
+            raise ctypes.WinError()
+else:
+    def windows_memory_gb():
+        raise RuntimeError('not implemented')
+
+def system_memory_gb():
+    if sys.platform == 'win32':
+        return windows_memory_gb()
+    else:
+        return posix_memory_gb()
 
 # --- Build Steps ---
 
@@ -98,12 +143,13 @@ cmake_build_cmd = [
     "cmake",
     "--build", str(build_dir.resolve())
 ]
-# Add parallel build flag common on Windows (optional)
-# Get number of processors, leave one free
 cpu_count = os.cpu_count()
+mem_gb = system_memory_gb()
+if mem_gb < 256 and cpu_count >= 128:
+    cpu_count = 70
 if cpu_count and cpu_count > 1:
-     cmake_build_cmd.extend(["--", f"-j{max(1, cpu_count - 1)}"]) # Pass '-jN' to underlying Ninja
-     print(f"Using parallel build flag: -j{max(1, cpu_count - 1)}")
+    cmake_build_cmd.extend(["--", f"-j{max(1, cpu_count)}"]) # Pass '-jN' to underlying Ninja
+    print(f"Using parallel build flag: -j{max(1, cpu_count)}")
 
 run_command(cmake_build_cmd)
 

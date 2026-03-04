@@ -36,15 +36,17 @@ def gpu_target_read():
         raise RuntimeError('Try:\n\techo gfx1151 > $HOME/THEROCK-GPU-TARGET\n')
     return gpu_target
 
-def build(gpu_target):
-    script_dir = Path(os.path.dirname(sys.argv[0]))
-    fork_name = 'r'
+def build(fork_name, gpu_target, build_cmd):
     os.environ['THEROCK_OUTPUT_DIR'] = os.path.expanduser(f'/o/{fork_name}-{gpu_target}')
     os.environ['THEROCK_SOURCE_DIR'] = os.path.expanduser(f'/w/{fork_name}')
     os.environ['THEROCK_INTERACTIVE'] = '1'
         # "-DTHEROCK_ENABLE_ALL=ON",
         # "-DTHEROCK_RESET_FEATURES=ON",
-    therock_build_cmd = [
+    run_command(build_cmd)
+
+def build_upstream(fork_name, gpu_target):
+    script_dir = Path(os.path.dirname(sys.argv[0]))
+    build_cmd = [
         sys.executable,
         script_dir / 'therock-build.py',
         f"-DTHEROCK_AMDGPU_FAMILIES={gpu_target}",
@@ -65,8 +67,34 @@ def build(gpu_target):
         "-DTHEROCK_ENABLE_RCCL=OFF",
         "-DTHEROCK_ENABLE_MIOPEN=ON",
         "-DTHEROCK_ENABLE_COMPOSABLE_KERNEL=ON",
+        "-DTHEROCK_ENABLE_DEBUG_TOOLS=ON",
     ]
-    run_command(therock_build_cmd)
+    build(fork_name, gpu_target, build_cmd)
+
+def build_single_component(fork_name, gpu_target):
+    script_dir = Path(os.path.dirname(sys.argv[0]))
+    # Initial build for single component development
+    build_cmd = [
+        sys.executable,
+        script_dir / 'therock-build.py',
+        "-DTHEROCK_RESET_FEATURES=ON",
+        f"-DTHEROCK_AMDGPU_FAMILIES={gpu_target}",
+        "-DTHEROCK_ENABLE_ALL=OFF",
+        "-DTHEROCK_ENABLE_DEBUG_TOOLS=ON",
+    ]
+    build(fork_name, gpu_target, build_cmd)
+
+def program_name():
+    return os.path.basename(sys.argv[0])
 
 gpu_target = gpu_target_read()
-build(gpu_target)
+fork_name = os.path.basename(os.path.realpath("."))
+
+p = program_name()
+if p == "therock-build-upstream.py":
+    build_upstream(fork_name, gpu_target)
+elif p == "therock-build-single-component.py":
+    build_single_component(fork_name, gpu_target)
+else:
+    sys.stderr.write("Unsupported command name: %s\n" % (p,))
+    sys.exit(2)
