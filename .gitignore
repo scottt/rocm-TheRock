@@ -27,3 +27,4 @@ __pycache__
 # Vim
 *.swp
 *.swo
+.toggle-suspend-state.json
