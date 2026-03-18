@@ -67,6 +67,7 @@ def build_upstream(fork_name, gpu_target):
         "-DTHEROCK_ENABLE_RCCL=OFF",
         "-DTHEROCK_ENABLE_MIOPEN=ON",
         "-DTHEROCK_ENABLE_COMPOSABLE_KERNEL=ON",
+        "-DTHEROCK_ENABLE_HIPDNN=ON",
         "-DTHEROCK_ENABLE_DEBUG_TOOLS=ON",
     ]
     build(fork_name, gpu_target, build_cmd)
