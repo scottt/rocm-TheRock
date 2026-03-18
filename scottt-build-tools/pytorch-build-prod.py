@@ -8,7 +8,6 @@ import subprocess
 import sys
 import textwrap
 
-
 def run_command(cmd: list[str | Path], *, cwd: Path | None = None, env: dict[str, str] | None = None) -> None:
     cmd = [str(part) for part in cmd]
     merged_env = os.environ.copy()
@@ -84,7 +83,7 @@ def get_pip_executable(venv_dir: Path) -> Path:
 
 
 
-def ensure_venv(venv_dir: Path) -> Path:
+def python_exe_from_venv(venv_dir: Path) -> Path:
     python_exe = get_python_executable(venv_dir)
     if not python_exe.exists():
         run_command([sys.executable, "-m", "venv", venv_dir])
@@ -239,10 +238,24 @@ def add_path_entries(env: dict[str, str], *entries: Path) -> None:
     env["PATH"] = os.pathsep.join(valid_entries + ([existing] if existing else []))
 
 
+def _find_msvc_tools_dir() -> Path | None:
+    """Find the MSVC tools directory (containing link.exe, cl.exe, etc.)."""
+    import shutil
+    cl_path = shutil.which("cl") or shutil.which("cl.exe")
+    if cl_path:
+        return Path(cl_path).resolve().parent
+    return None
+
+
 def build_environment(args: argparse.Namespace) -> dict[str, str]:
     env = os.environ.copy()
     rocm_root = args.rocm_root
     add_path_entries(env, rocm_root / "bin", rocm_root / "lib" / "llvm" / "bin")
+    # On Windows, ensure MSVC tools dir (link.exe) comes before Git's /usr/bin/link.
+    if sys.platform == "win32":
+        msvc_dir = _find_msvc_tools_dir()
+        if msvc_dir:
+            env["PATH"] = str(msvc_dir) + os.pathsep + env.get("PATH", "")
     env["ROCM_PATH"] = str(rocm_root)
     env["ROCM_HOME"] = str(rocm_root)
     env["HIP_PATH"] = str(rocm_root)
@@ -271,8 +284,6 @@ def checkout_repositories(args: argparse.Namespace, env: dict[str, str], python_
     run_command(torch_checkout_cmd, cwd=pytorch_tools_dir, env=env)
 
     shared_args = [
-        "--checkout-dir",
-        args.pytorch_audio_dir,
         "--torch-dir",
         args.pytorch_dir,
     ]
@@ -287,26 +298,47 @@ def checkout_repositories(args: argparse.Namespace, env: dict[str, str], python_
         python_path,
         pytorch_tools_dir / "pytorch_audio_repo.py",
         "checkout",
-        *shared_args,
+        "--checkout-dir",
+        args.pytorch_audio_dir,
+        *shared_args
     ]
+    run_command(audio_checkout_cmd, cwd=pytorch_tools_dir, env=env)
     vision_checkout_cmd = [
         python_path,
         pytorch_tools_dir / "pytorch_vision_repo.py",
         "checkout",
         "--checkout-dir",
         args.pytorch_vision_dir,
-        "--torch-dir",
-        args.pytorch_dir,
+        *shared_args
     ]
-    if args.require_related_commits:
-        vision_checkout_cmd.append("--require-related-commit")
-    if args.checkout_depth is not None:
-        vision_checkout_cmd.extend(["--depth", str(args.checkout_depth)])
-    if args.checkout_jobs is not None:
-        vision_checkout_cmd.extend(["--jobs", str(args.checkout_jobs)])
-
-    run_command(audio_checkout_cmd, cwd=pytorch_tools_dir, env=env)
     run_command(vision_checkout_cmd, cwd=pytorch_tools_dir, env=env)
+
+    if sys.platform != 'win32':
+        apex_checkout_cmd = [
+            python_path,
+            pytorch_tools_dir / "pytorch_apex_repo.py",
+            "checkout",
+            *shared_args
+        ]
+        run_command(apex_checkout_cmd, cwd=pytorch_tools_dir, env=env)
+        triton_checkout_cmd = [
+            python_path,
+            pytorch_tools_dir / "pytorch_triton_repo.py",
+            "checkout",
+            *shared_args
+        ]
+        run_command(triton_checkout_cmd, cwd=pytorch_tools_dir, env=env)
+
+def build_rocm_python_packages(args: argparse.Namespace, env: dict[str, str], python_path: Path) -> None:
+    build_script = args.therock_repo / "build_tools" / "build_python_packages.py"
+    artifact_dir = args.output_root / f"r-{args.gpu_target}" / "build" / "artifacts"
+    dest_dir = args.output_root / f"r-{args.gpu_target}" / "python-packages"
+    run_command(
+        [python_path, build_script,
+         "--artifact-dir", artifact_dir,
+         "--dest-dir", dest_dir],
+        env=env,
+    )
 
 
 def run_build(args: argparse.Namespace, env: dict[str, str], python_path: Path) -> None:
@@ -350,12 +382,45 @@ def run_build(args: argparse.Namespace, env: dict[str, str], python_path: Path) 
 
 
 def infer_require_related_commits(args: argparse.Namespace) -> bool:
-    if args.require_related_commits is not None:
-        return args.require_related_commits
-    return args.pytorch_origin.rstrip("/").endswith("ROCm/pytorch.git") and args.pytorch_ref.startswith("release/")
+    '''ROCm has a fork of Pytorch that has as "related_commits" file that points to known-good git-refs
+    in the torch-{vision,audio,apex,...} repos.
+
+    For example:
+    develop branch: 
+
+    Examples:
+
+    * develop : https://github.com/ROCm/pytorch/blob/release/2.10/related_commits
+    ubuntu|pytorch|torchvision|main|218d2ab791d437309f91e0486eb9fa7f00badc17|https://github.com/pytorch/vision
+
+    * release/2.10 branch: https://github.com/ROCm/pytorch/blob/release/2.10/related_commits
+    ubuntu|pytorch|torchvision|release/0.25|82df5f599578b383987510836bb05ea97dcc9669|https://github.com/pytorch/vision
+
+    The fields are `os | source | project | branch | commit | origin`
+
+    The `related_commits` file is not used when building nighly versions of Pytorch  ("Tip-on-Tip")
+    Note that upstream Pytorch has a `.ci/docker/ci_commit_pints/{triton,...}.txt` which TheRock only uses for Triton in Pytorch
+    '''
+    return (args.pytorch_ref != "nightly")
+
+def infer_pytorch_origin(args: argparse.Namespace) -> str:
+    'Infer the GIT URL to use for Pytorch'
+    if args.pytorch_origin is not None:
+        return args.pytorch_origin
+    if args.pytorch_ref == "nightly":
+        return "https://github.com/pytorch/pytorch.git"
+    else: # only the ROCm/pytorch repo has the "related_commits" file with reference to other repos
+        return "https://github.com/ROCm/pytorch.git"
 
 
-def parse_args() -> argparse.Namespace:
+def pytorch_branch_name_to_version(branch_name):
+    'release/2.10 -> 2.10'
+    if branch_name.startswith('release/'):
+        return branch_name[len('release/'):]
+    return branch_name
+
+
+def parse_args(argv) -> argparse.Namespace:
     repo_root = default_therock_repo()
     parser = argparse.ArgumentParser(description="Checkout and build PyTorch for Windows + ROCm")
     parser.add_argument(
@@ -365,41 +430,51 @@ def parse_args() -> argparse.Namespace:
         default="all",
         help="Run checkout, build, or both",
     )
-    parser.add_argument("--drive-letter", type=normalize_drive_letter, default="C")
+    if sys.platform == "win32":
+        parser.add_argument("--drive-letter", type=normalize_drive_letter, default="C")
     parser.add_argument("--therock-repo", type=Path, default=repo_root)
     parser.add_argument("--gpu-target", default="gfx1151")
-    parser.add_argument("--pytorch-origin", default="https://github.com/pytorch/pytorch.git")
+    parser.add_argument("--pytorch-origin", default=None)
     parser.add_argument("--pytorch-ref", default="nightly")
-    parser.add_argument(
-        "--require-related-commits",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-        help="Require torch related_commits pins for audio and vision. Defaults to enabled for ROCm release branches.",
-    )
     parser.add_argument("--checkout-depth", type=int)
     parser.add_argument("--checkout-jobs", type=int, default=10)
     parser.add_argument("--clean", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--build-audio", action=argparse.BooleanOptionalAction, default=None)
     parser.add_argument("--build-vision", action=argparse.BooleanOptionalAction, default=None)
     parser.add_argument("--version-suffix")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
-    drive_root = Path(f"{args.drive_letter}:/")
+    if sys.platform == "win32":
+        drive_root = Path(f"{args.drive_letter}:/")
+    else:
+        drive_root = "/"
     args.workspace_root = drive_root / "w"
     args.output_root = drive_root / "o"
-    args.torch_root = drive_root / "t"
+    if args.pytorch_ref == "nightly":
+        args.torch_root = drive_root / "t"
+    else:
+        args.torch_root = drive_root / f't-{pytorch_branch_name_to_version(args.pytorch_ref)}'
     args.rocm_root = args.output_root / f"r-{args.gpu_target}" / "build" / "dist" / "rocm"
-    args.pytorch_dir = args.torch_root / "pytorch"
+    args.pytorch_dir = args.torch_root / "torch"
     args.pytorch_audio_dir = args.torch_root / "audio"
     args.pytorch_vision_dir = args.torch_root / "vision"
-    args.output_dir = args.torch_root / "pyout"
-    args.venv_dir = args.torch_root / "venv"
+    args.output_dir = args.output_root / "t"
+    args.pytorch_build_venv_dir = args.torch_root / "venv"
     args.require_related_commits = infer_require_related_commits(args)
+    args.pytorch_origin = infer_pytorch_origin(args)
+    args.therock_build_venv_dir= args.therock_repo / ".venv"
     return args
 
+main_function_map = {}
 
-def main() -> int:
-    args = parse_args()
+def main_function(func):
+    global main_function_map
+    main_function_map[func.__name__.replace('_','-')] = func
+    return func
+
+@main_function
+def pytorch_build_prod(argv) -> int:
+    args = parse_args(argv)
     if not args.therock_repo.exists():
         raise FileNotFoundError(f"TheRock repo not found at '{args.therock_repo}'")
     if not args.rocm_root.exists():
@@ -409,9 +484,9 @@ def main() -> int:
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
     rocm_version = parse_hip_version(args.rocm_root)
-    python_path = ensure_venv(args.venv_dir)
+    python_path = python_exe_from_venv(args.pytorch_build_venv_dir)
     ensure_rocm_shim_installed(
-        args.venv_dir,
+        args.pytorch_build_venv_dir,
         rocm_root=args.rocm_root,
         rocm_version=rocm_version,
         target_family=args.gpu_target,
@@ -423,10 +498,10 @@ def main() -> int:
     print(f"  ROCm root:         {args.rocm_root}")
     print(f"  ROCm version:      {rocm_version}")
     print(f"  GPU target:        {args.gpu_target}")
-    print(f"  Torch origin/ref:  {args.pytorch_origin} @ {args.pytorch_ref}")
+    print(f"  Torch origin and ref:  {args.pytorch_origin} @ {args.pytorch_ref}")
     print(f"  Checkout dirs:     {args.pytorch_dir}, {args.pytorch_audio_dir}, {args.pytorch_vision_dir}")
     print(f"  Output dir:        {args.output_dir}")
-    print(f"  Build venv:        {args.venv_dir}")
+    print(f"  Build venv:        {args.pytorch_build_venv_dir}")
 
     if args.action in ("checkout", "all"):
         checkout_repositories(args, env, python_path)
@@ -434,6 +509,42 @@ def main() -> int:
         run_build(args, env, python_path)
     return 0
 
+@main_function
+def therock_build_python_packages(argv) -> int:
+    args = parse_args(argv)
+    if not args.therock_repo.exists():
+        raise FileNotFoundError(f"TheRock repo not found at '{args.therock_repo}'")
+    if not args.rocm_root.exists():
+        raise FileNotFoundError(f"ROCm distribution root not found at '{args.rocm_root}'")
 
-if __name__ == "__main__":
-    raise SystemExit(main())
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+
+    rocm_version = parse_hip_version(args.rocm_root)
+    python_path = python_exe_from_venv(args.therock_build_venv_dir)
+
+    print("--- Configuration ---")
+    print(f"  TheRock repo:      {args.therock_repo}")
+    print(f"  ROCm root:         {args.rocm_root}")
+    print(f"  ROCm version:      {rocm_version}")
+    print(f"  GPU target:        {args.gpu_target}")
+    print(f"  Output dir:        {args.output_dir}")
+    print(f"  Build venv:        {args.therock_build_venv_dir}")
+    build_rocm_python_packages(args, env=build_environment(args), python_path=python_path)
+    return 0
+
+def main_function_dispatch(name, args):
+    if name.endswith(".py"):
+        name = name[:-len(".py")]
+    try:
+        f = main_function_map[name]
+    except KeyError:
+        sys.stderr.write('%s is not a valid command name\n' % (name,))
+        sys.exit(2)
+    return f(args)
+
+def program_name():
+    return os.path.basename(sys.argv[0])
+
+if __name__ == '__main__':
+    main_function_dispatch(program_name(), sys.argv[1:])
+    sys.exit(0)
